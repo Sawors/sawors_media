@@ -3,6 +3,8 @@ description: A sample command-line application.
 version: 1.0.0
 # repository: https://github.com/my_org/my_repo
 
+publish_to: none
+
 environment:
   sdk: ^3.9.2
 
@@ -12,6 +14,17 @@ dependencies:
   xml: ^6.6.1
   sawors_media_common:
     path: ../core
+  provider: ^6.1.5+1
+  dio: ^5.9.2
+  get_it: ^9.2.1
+  flutter_secure_storage: ^10.0.0
+  jwt_decode: ^0.3.1
+  shelf: ^1.4.2
+  dart_jsonwebtoken: ^3.3.2
+  cryptography: ^2.9.0
+  sqlite3: ^2.9.4
+  collection: ^1.19.1
+  random_string: ^2.3.1
 
 dev_dependencies:
   lints: ^6.0.0
