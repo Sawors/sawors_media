@@ -1,7 +1,8 @@
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
+import 'package:random_string/random_string.dart';
 import 'package:sawors_media_common/user.dart';
+import 'package:sawors_media_server/databases.dart';
 import 'package:sawors_media_server/server_local_files.dart';
 import 'package:sawors_media_server/token_manager.dart';
 import 'package:shelf/shelf.dart';
@@ -9,7 +10,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 Future<Response> handleRequest(
   Request request, {
-  required TokenManager tokenManager,
+  required AuthManager tokenManager,
 }) async {
   final Map<String, String> headers = request.headers;
   final List<String> path = request.requestedUri.pathSegments;
@@ -35,36 +36,73 @@ Future<Response> handleRequest(
         print("|  body   : $body");
         final data = jsonDecode(body);
         final String? password = data["password"];
-        final String? username = data["name"]?.toString().toLowerCase();
-        if (username == null ||
+        final String? userid = data["userid"]?.toString().toLowerCase();
+        if (userid == null ||
             password == null ||
-            !User.validateUsername(username)) {
+            !User.validateUsername(userid)) {
           return Response.badRequest(body: "Bad json request");
         }
-        final db = sqlite3.open(ServerLocalFiles.credentialsDatabase.path);
-        final select = db.select("SELECT * FROM credentials WHERE name = ?", [
-          username,
-        ]);
-        if (select.rows.isEmpty) {
-          print("User not found");
-          return Response.badRequest(
-            body: "User not found, please register instead of logging in",
-          );
+        if (!(await tokenManager.checkCredentials(userid, password))) {
+          return Response.forbidden("Bad password or user does not exist");
         }
-        final List<int> salt = select.first["salt"];
-        final List<int> storedPassword = select.first["password"];
-        final pHash = await tokenManager.hashPassword(password, salt);
-        if (!ListEquality().equals(storedPassword, pHash)) {
-          return Response.forbidden("Bad password");
-        }
-        final token = tokenManager.createTokenForUser(username);
-        final signed = tokenManager.signToken(token, username);
+        final token = tokenManager.createTokenForUser(userid);
+        final signed = tokenManager.signToken(token, userid);
         return Response.ok(signed);
       } catch (e) {
         print(e);
         return Response.forbidden("bad credentials");
       }
-      return Response.ok("token");
+    case "register":
+      final String body = await request.readAsString();
+      try {
+        final payload = jsonDecode(body);
+        final String? registerKey = request.requestedUri.queryParameters["key"];
+        if (registerKey == null ||
+            !tokenManager.isRegisterKeyValid(registerKey)) {
+          return Response.forbidden("Empty or invalid register key provided.");
+        }
+        // user can effectively register
+        final userData = payload["userdata"];
+        final displayName = userData["displayName"];
+        userData["userid"] =
+            User.userIdFromName(userData["displayName"] ?? "") ??
+            randomAlphaNumeric(8).toLowerCase();
+        if (ServerDataBases.checkIfUsernameExists(displayName)) {
+          return Response.forbidden("A user with the same name already exists");
+        }
+        int iter = 0;
+        while (ServerDataBases.checkIfUserIdExists(userData["userid"])) {
+          userData["userid"] = randomAlphaNumeric(
+            8 + (iter / 10).floor(),
+          ).toLowerCase();
+          if (iter > 500) {
+            return Response.internalServerError(
+              body:
+                  "To many attempts at trying to find a suitable user id, wtf is happening ?",
+            );
+          }
+        }
+        final String password = payload["password"];
+        if (password.isEmpty) {
+          return Response.forbidden("Empty password not allowed");
+        }
+        final User userdata = User.fromJson(userData);
+        ServerDataBases.saveUserData(userdata);
+        final salt = tokenManager.getRandomSalt();
+        final pHash = tokenManager.hashPassword(password, salt);
+        final credDb = sqlite3.open(ServerLocalFiles.credentialsDatabase.path);
+        credDb.execute(
+          "INSERT INTO credentials (userid,password,salt) VALUES (?,?,?);",
+          [userData["userid"], pHash, salt],
+        );
+        credDb.dispose();
+        tokenManager.consumeRegisterKey(registerKey);
+        return Response.ok(jsonEncode(userdata.toJson()));
+      } catch (_) {
+        return Response.internalServerError(
+          body: "Internal server error : probably an incorrect json",
+        );
+      }
     case "test":
       final Map<String, String> rspBody = {
         "test": "ok",
@@ -85,7 +123,7 @@ Future<Response> handleRequest(
 Future<Response> _handleAuthenticatedRequest(
   Request request,
   String token,
-  TokenManager tokenManager,
+  AuthManager tokenManager,
 ) async {
   final Map<String, String> headers = request.headers;
   final List<String> path = request.requestedUri.pathSegments;

@@ -39,13 +39,13 @@ class LoginPage extends StatelessWidget {
             if (token == null) {
               return TextButton(
                 onPressed: () {
-                  final username = ""; // TODO
+                  final userid = ""; // TODO
                   final password = ""; // TODO
                   final authProvider = Provider.of<AuthProvider>(
                     context,
                     listen: false,
                   );
-                  authProvider.login(username, password).then((success) {
+                  authProvider.login(userid, password).then((success) {
                     if (success) {
                       if (!context.mounted) {
                         return;

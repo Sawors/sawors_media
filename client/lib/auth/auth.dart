@@ -10,11 +10,11 @@ class AuthService {
 
   AuthService(this._dio);
 
-  Future<bool> login(String name, String password) async {
+  Future<bool> login(String userid, String password) async {
     try {
       final response = await _dio.post(
         '/login',
-        data: jsonEncode({'name': name, 'password': password}),
+        data: jsonEncode({'userid': userid, 'password': password}),
       );
 
       if (response.statusCode == 200) {
@@ -30,11 +30,11 @@ class AuthService {
     return false;
   }
 
-  Future<bool> signup(String name, String password) async {
+  Future<bool> signup(String userid, String password) async {
     try {
       final response = await _dio.post(
         '/register',
-        data: jsonEncode({'name': name, 'password': password}),
+        data: jsonEncode({'userid': userid, 'password': password}),
       );
 
       if (response.statusCode == 200) {
@@ -89,8 +89,8 @@ class AuthProvider with ChangeNotifier {
     return success;
   }
 
-  Future<bool> signup(String name, String password) async {
-    bool success = await _authService.signup(name, password);
+  Future<bool> signup(String userid, String password) async {
+    bool success = await _authService.signup(userid, password);
     print(success);
     if (success) {
       _isAuthenticated = true;

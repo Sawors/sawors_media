@@ -1,6 +1,6 @@
 import 'dart:io';
 
-class LocalFiles {
+abstract class LocalFiles {
   static Directory get configDir {
     if (Platform.isLinux || Platform.isMacOS) {
       return Directory("${Platform.environment["HOME"]}/.config/sawors-media");

@@ -25,6 +25,7 @@ dependencies:
   sqlite3: ^2.9.4
   collection: ^1.19.1
   random_string: ^2.3.1
+  json_serializable: ^6.13.0
 
 dev_dependencies:
   lints: ^6.0.0
