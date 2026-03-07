@@ -20,7 +20,40 @@ class Homepage extends StatelessWidget {
     });
     return Scaffold(
       body: Center(
-        child: Text("Home", style: Theme.of(context).textTheme.displayMedium),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text("Home", style: Theme.of(context).textTheme.displayMedium),
+            TextButton(
+              onPressed: () {
+                final now = DateTime.timestamp().millisecondsSinceEpoch;
+                GetIt.instance<Dio>().get("/test").then((r) {
+                  try {
+                    final stamp = int.parse(jsonDecode(r.data)["timestamp"]);
+                    print("Server latency : ${stamp - now}ms");
+                  } catch (_) {}
+                });
+              },
+              child: Text(
+                "test connection",
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                GetIt.instance<Dio>().get("/check-token").then((r) {
+                  try {
+                    print("Valid token");
+                  } catch (_) {}
+                }, onError: (e) => print("Auth failure"));
+              },
+              child: Text(
+                "test auth",
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

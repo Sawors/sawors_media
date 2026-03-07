@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'package:sawors_media_common/utils.dart';
 import 'package:string_validator/string_validator.dart';
 
 part "user.g.dart";
@@ -35,34 +36,37 @@ class User {
     final List<String> usedAllowedChars = allowedChars ?? ["-", " ", "_", "."];
     return username.isNotEmpty &&
         username.length <= maxLength &&
-        isAlphanumeric(
+        removeDiacritics(
           username
               // could be reduced to a .splitMapJoin
               .split("")
               .map((s) => usedAllowedChars.contains(s) ? "" : s)
               .join(),
-        );
+        ).isAlphanumeric;
   }
 
   static String? userIdFromName(String username) {
     if (!validateUsername(username)) {
       return null;
     }
-    final commonConv = ["_", " "];
-    final String converted = username.toLowerCase().split("").map((c) {
-      if (c.isAlphanumeric) {
-        return c;
-      }
-      if (commonConv.contains(c)) {
-        return "-";
-      }
-      return "";
-    }).join();
+    final commonConv = ["_", " ", "-"];
+    final String converted = removeDiacritics(username.toLowerCase())
+        .split("")
+        .map((c) {
+          if (c.isAlphanumeric) {
+            return c;
+          }
+          if (commonConv.contains(c)) {
+            return "-";
+          }
+          return "";
+        })
+        .join();
     return validateUserId(converted) ? converted : null;
   }
 
   static bool validateUserId(String userid) {
-    return (!userid.split("").any((c) => c.isUppercase)) &&
+    return (!userid.split("").any((c) => c.isAlpha && c.isUppercase)) &&
         validateUsername(userid, allowedChars: ["-"]);
   }
 }

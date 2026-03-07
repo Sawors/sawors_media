@@ -94,6 +94,6 @@ abstract class ServerDataBases {
       [userid.toLowerCase()],
     );
     userInfoDb.dispose();
-    return result.isNotEmpty;
+    return result.first.values.any((v) => v == 1);
   }
 }

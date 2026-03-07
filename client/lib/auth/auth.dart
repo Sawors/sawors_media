@@ -89,17 +89,6 @@ class AuthProvider with ChangeNotifier {
     return success;
   }
 
-  Future<bool> signup(String userid, String password) async {
-    bool success = await _authService.signup(userid, password);
-    print(success);
-    if (success) {
-      _isAuthenticated = true;
-      //await _updateUser();
-      notifyListeners();
-    }
-    return success;
-  }
-
   Future<void> logout() async {
     await _authService.logout();
     _isAuthenticated = false;

@@ -10,7 +10,7 @@ import 'package:sqlite3/sqlite3.dart';
 
 Future<Response> handleRequest(
   Request request, {
-  required AuthManager tokenManager,
+  required AuthManager authManager,
 }) async {
   final Map<String, String> headers = request.headers;
   final List<String> path = request.requestedUri.pathSegments;
@@ -42,11 +42,11 @@ Future<Response> handleRequest(
             !User.validateUsername(userid)) {
           return Response.badRequest(body: "Bad json request");
         }
-        if (!(await tokenManager.checkCredentials(userid, password))) {
+        if (!(await authManager.checkCredentials(userid, password))) {
           return Response.forbidden("Bad password or user does not exist");
         }
-        final token = tokenManager.createTokenForUser(userid);
-        final signed = tokenManager.signToken(token, userid);
+        final token = authManager.createTokenForUser(userid);
+        final signed = authManager.signToken(token, userid);
         return Response.ok(signed);
       } catch (e) {
         print(e);
@@ -56,31 +56,18 @@ Future<Response> handleRequest(
       final String body = await request.readAsString();
       try {
         final payload = jsonDecode(body);
-        final String? registerKey = request.requestedUri.queryParameters["key"];
+        final String? registerKey = payload["register-key"];
         if (registerKey == null ||
-            !tokenManager.isRegisterKeyValid(registerKey)) {
+            !authManager.isRegisterKeyValid(registerKey)) {
           return Response.forbidden("Empty or invalid register key provided.");
         }
         // user can effectively register
         final userData = payload["userdata"];
-        final displayName = userData["displayName"];
         userData["userid"] =
             User.userIdFromName(userData["displayName"] ?? "") ??
             randomAlphaNumeric(8).toLowerCase();
-        if (ServerDataBases.checkIfUsernameExists(displayName)) {
-          return Response.forbidden("A user with the same name already exists");
-        }
-        int iter = 0;
-        while (ServerDataBases.checkIfUserIdExists(userData["userid"])) {
-          userData["userid"] = randomAlphaNumeric(
-            8 + (iter / 10).floor(),
-          ).toLowerCase();
-          if (iter > 500) {
-            return Response.internalServerError(
-              body:
-                  "To many attempts at trying to find a suitable user id, wtf is happening ?",
-            );
-          }
+        if (ServerDataBases.checkIfUserIdExists(userData["userid"])) {
+          return Response.forbidden("A user with the same ID already exists");
         }
         final String password = payload["password"];
         if (password.isEmpty) {
@@ -88,20 +75,40 @@ Future<Response> handleRequest(
         }
         final User userdata = User.fromJson(userData);
         ServerDataBases.saveUserData(userdata);
-        final salt = tokenManager.getRandomSalt();
-        final pHash = tokenManager.hashPassword(password, salt);
+        final salt = authManager.getRandomSalt();
+        final pHash = await authManager.hashPassword(password, salt);
         final credDb = sqlite3.open(ServerLocalFiles.credentialsDatabase.path);
         credDb.execute(
           "INSERT INTO credentials (userid,password,salt) VALUES (?,?,?);",
           [userData["userid"], pHash, salt],
         );
         credDb.dispose();
-        tokenManager.consumeRegisterKey(registerKey);
+        authManager.consumeRegisterKey(registerKey);
         return Response.ok(jsonEncode(userdata.toJson()));
-      } catch (_) {
+      } catch (e) {
+        print(e);
         return Response.internalServerError(
           body: "Internal server error : probably an incorrect json",
         );
+      }
+    case "username-available":
+      final String body = (await request.readAsString()).trim();
+      if (!User.validateUserId(body)) {
+        return Response.badRequest(
+          body: "The body received is not a correct user id",
+        );
+      }
+      if (ServerDataBases.checkIfUserIdExists(body)) {
+        return Response.ok("false");
+      } else {
+        return Response.ok("true");
+      }
+    case "validate-reg-key":
+      final String body = (await request.readAsString()).trim();
+      if (authManager.isRegisterKeyValid(body)) {
+        return Response.ok("true");
+      } else {
+        return Response.ok("false");
       }
     case "test":
       final Map<String, String> rspBody = {
@@ -117,20 +124,20 @@ Future<Response> handleRequest(
     );
   }
 
-  return _handleAuthenticatedRequest(request, auth, tokenManager);
+  return _handleAuthenticatedRequest(request, auth, authManager);
 }
 
 Future<Response> _handleAuthenticatedRequest(
   Request request,
   String token,
-  AuthManager tokenManager,
+  AuthManager authManager,
 ) async {
   final Map<String, String> headers = request.headers;
   final List<String> path = request.requestedUri.pathSegments;
 
   switch (path[1]) {
     case "check-token":
-      final checked = tokenManager.checkToken(token);
+      final checked = authManager.checkToken(token);
       return checked
           ? Response.ok("valid token")
           : Response.unauthorized("bad token (expired or invalid)");

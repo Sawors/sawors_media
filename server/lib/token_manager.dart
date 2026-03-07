@@ -92,7 +92,7 @@ class AuthManager {
     final db = sqlite3.open(ServerLocalFiles.registerKeysDatabase.path);
     final now = DateTime.now().millisecondsSinceEpoch;
     db.execute(
-      "INSERT INTO keys (key_value,created,valid_until) VALUES (?,?,?);",
+      "INSERT OR REPLACE INTO keys (key_value,created,valid_until) VALUES (?,?,?);",
       [
         regKey,
         now,
@@ -106,10 +106,12 @@ class AuthManager {
   bool isRegisterKeyValid(String registerKey) {
     final db = sqlite3.open(ServerLocalFiles.registerKeysDatabase.path);
     final now = DateTime.now().millisecondsSinceEpoch;
-    final select = db.select(
-      "SELECT (key_value,valid_until) FROM keys WHERE key_value = ?;",
-      [registerKey],
-    );
+    final select = db.select("SELECT * FROM keys WHERE key_value = ?;", [
+      registerKey,
+    ]);
+    if (select.isEmpty) {
+      return false;
+    }
     final validity = int.tryParse(select.first["valid_until"]);
     final isExpired = validity != null && validity < now;
     if (isExpired) {

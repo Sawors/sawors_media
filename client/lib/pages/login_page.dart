@@ -1,81 +1,148 @@
-import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import 'package:sawors_media_client/pages/routing.dart';
 
 import '../auth/auth.dart';
-import '../auth/tokens.dart';
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+  LoginPage({super.key});
 
+  final LoginPageViewModel viewModel = LoginPageViewModel();
   @override
   Widget build(BuildContext context) {
-    // di/service_locator.dart
+    final theme = Theme.of(context);
     return Scaffold(
-      body: Center(
-        child: FutureBuilder(
-          future: GetIt.instance<TokenService>().getToken().then((token) {
-            if (token == null) {
-              return Future.value(null);
-            } else {
-              print("Token found, validating it...");
-              return GetIt.instance<Dio>()
-                  .get("/check-token")
-                  .then((r) => r.data == "valid token" ? token : null);
-            }
-          }),
-          builder: (context, asyncSnapshot) {
-            if (asyncSnapshot.connectionState != ConnectionState.done) {
-              return SizedBox.square(
-                dimension: 100,
-                child: CircularProgressIndicator(),
-              );
-            }
-
-            final String? token = asyncSnapshot.data;
-            print("Token (at login) : $token");
-            if (token == null) {
-              return TextButton(
-                onPressed: () {
-                  final userid = ""; // TODO
-                  final password = ""; // TODO
-                  final authProvider = Provider.of<AuthProvider>(
-                    context,
-                    listen: false,
-                  );
-                  authProvider.login(userid, password).then((success) {
-                    if (success) {
-                      if (!context.mounted) {
-                        return;
-                      }
-                      Navigator.pushReplacementNamed(context, RouteName.home);
-                    } else {
-                      if (!context.mounted) {
-                        return;
-                      }
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Login failed! Please try again.'),
+      body: Padding(
+        padding: const EdgeInsets.all(50.0),
+        child: ListenableBuilder(
+          listenable: viewModel,
+          builder: (context, child) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              spacing: 5,
+              children: [
+                TextField(
+                  controller: viewModel.useridController,
+                  decoration: const InputDecoration(labelText: 'User ID'),
+                  autofocus: true,
+                  onChanged: viewModel.updateUserid,
+                ),
+                TextField(
+                  controller: viewModel.passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Password'),
+                  onChanged: viewModel.updatePassword,
+                  onEditingComplete: viewModel.allValid
+                      ? () {
+                          viewModel.submit(context);
+                        }
+                      : null,
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: viewModel.allValid
+                      ? () {
+                          viewModel.submit(context);
+                        }
+                      : null,
+                  child: const Text('Login'),
+                ),
+                const SizedBox(height: 30),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: "If you have no account, you can ",
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.dividerColor,
                         ),
-                      );
-                    }
-                  });
-                },
-                child: Text("Login"),
-              );
-            } else {
-              return TextButton(
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, RouteName.home);
-                },
-                child: Text("Enter"),
-              );
-            }
+                      ),
+                      TextSpan(
+                        text: "register here",
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            if (context.mounted) {
+                              Navigator.of(
+                                context,
+                              ).popAndPushNamed(RouteName.register);
+                            }
+                          },
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
           },
         ),
       ),
     );
+  }
+}
+
+class LoginPageViewModel extends ChangeNotifier {
+  String _userid;
+  String _password;
+
+  late final TextEditingController passwordController;
+  late final TextEditingController useridController;
+
+  LoginPageViewModel({String? userid, String? password})
+    : _userid = userid ?? "",
+      _password = password ?? "" {
+    passwordController = TextEditingController(text: password);
+    useridController = TextEditingController(text: userid);
+  }
+
+  void updatePassword(String? password) {
+    if (password != null) {
+      _password = password;
+    }
+    notifyListeners();
+  }
+
+  void updateUserid(String? userid) {
+    if (userid != null) {
+      _userid = userid;
+    }
+    notifyListeners();
+  }
+
+  Future<void> submit(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (_userid.isEmpty || _password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cannot login with empty credentials')),
+      );
+    }
+    authProvider.login(_userid, _password).then((success) {
+      if (success) {
+        if (!context.mounted) {
+          return;
+        }
+        Navigator.pushReplacementNamed(context, RouteName.home);
+      } else {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed! Please try again.')),
+        );
+      }
+    });
+  }
+
+  bool get allValid => _password.isNotEmpty && _userid.isNotEmpty;
+
+  @override
+  void dispose() {
+    useridController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 }

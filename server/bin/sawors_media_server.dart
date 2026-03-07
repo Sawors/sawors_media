@@ -13,7 +13,7 @@ void main(List<String> args) async {
   await ServerLocalFiles.initializeLocalFiles();
   await ServerDataBases.initializeDatabases();
 
-  final AuthManager tokenManager = AuthManager(
+  final AuthManager authManager = AuthManager(
     serverId: 'media.sawors.net',
     // since tokens are not kept between server restarts, it is not necessary to
     // keep it between sessions.
@@ -22,6 +22,8 @@ void main(List<String> args) async {
       Platform.environment["SAWORS_MEDIA_SECRET_KEY"] ?? randomString(32),
     ),
   );
+
+  authManager.createRegisterKey(keyOverride: "bidibop");
 
   Map<String, String?> progArgs = Map.fromEntries(
     args.map((v) {
@@ -32,7 +34,7 @@ void main(List<String> args) async {
 
   var handler = const Pipeline()
       .addMiddleware(logRequests())
-      .addHandler((req) => handleRequest(req, tokenManager: tokenManager));
+      .addHandler((req) => handleRequest(req, authManager: authManager));
 
   var server = await shelf_io.serve(
     handler,
