@@ -3,3 +3,5 @@
 .flutter-plugins-dependencies
 *.g.dart
 devtools_options.yaml
+client/.server/
+client/.core/
