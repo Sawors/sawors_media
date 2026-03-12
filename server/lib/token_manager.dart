@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:random_string/random_string.dart';
+import 'package:sawors_media_server/databases.dart';
 import 'package:sawors_media_server/server_local_files.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -25,10 +26,18 @@ class AuthManager {
     return signed;
   }
 
-  JWT createTokenForUser(String username, {int? expirationTimeMs}) {
+  JWT? decryptToken(String token) {
+    return JWT.tryVerify(token, _secretKey);
+  }
+
+  String? getUserIdOfToken(String token) {
+    return decryptToken(token)?.payload["sub"];
+  }
+
+  JWT createTokenForUser(String userid, {int? expirationTimeMs}) {
     final epoch = DateTime.timestamp().millisecondsSinceEpoch;
     return JWT({
-      "sub": username,
+      "sub": userid,
       "iss": serverId,
       "iat": epoch,
       "exp": epoch + (expirationTimeMs ?? defaultLoginExpirationTimeMs),
@@ -67,6 +76,9 @@ class AuthManager {
   }
 
   Future<bool> checkCredentials(String userid, String password) async {
+    if (userid == ServerDataBases.systemUserId) {
+      return false;
+    }
     final db = sqlite3.open(ServerLocalFiles.credentialsDatabase.path);
     final select = db.select("SELECT * FROM credentials WHERE userid = ?", [
       userid,

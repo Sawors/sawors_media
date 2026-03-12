@@ -7,7 +7,13 @@ class ThemeProvider {
       brightness: brightness,
     );
 
-    return ThemeData(colorScheme: colorScheme, brightness: brightness);
+    return ThemeData(
+      colorScheme: colorScheme,
+      brightness: brightness,
+      scaffoldBackgroundColor: brightness == Brightness.dark
+          ? Colors.black
+          : Color.fromARGB(255, 241, 241, 241),
+    );
   }
 
   static ThemeData get dark {

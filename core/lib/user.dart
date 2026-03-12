@@ -71,24 +71,17 @@ class User {
   }
 }
 
-@JsonSerializable(createJsonSchema: true)
+@JsonSerializable()
 class UserPreferences {
-  final String language;
-  final String theme;
-  final int ageLimit;
+  @JsonKey()
+  final Map<String, dynamic> map;
 
-  UserPreferences({
-    this.language = "en-us",
-    this.theme = "default-dark",
-    this.ageLimit = -1,
-  });
+  UserPreferences()
+    : map = {
+        "auth": {"use-token": true},
+      };
 
-  factory UserPreferences.fromJson(Map<String, dynamic> json) =>
-      _$UserPreferencesFromJson(json);
+  UserPreferences.fromJson(Map<String, dynamic> json) : map = json;
 
-  /// Connect the generated [_$PersonToJson] function to the `toJson` method.
-  Map<String, dynamic> toJson() => _$UserPreferencesToJson(this);
-
-  /// The JSON Schema for this class.
-  static const jsonSchema = _$UserPreferencesJsonSchema;
+  Map<String, dynamic> toJson() => map;
 }

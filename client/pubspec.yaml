@@ -42,6 +42,7 @@ dependencies:
   json_serializable: ^6.13.0
   sawors_media_common:
     path: ../core
+  xml: ^6.6.1
 
 
 dev_dependencies:

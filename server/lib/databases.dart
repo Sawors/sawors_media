@@ -5,6 +5,8 @@ import 'package:sawors_media_server/server_local_files.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 abstract class ServerDataBases {
+  static const String systemUserId = "system";
+
   static Future<void> initializeDatabases() async {
     await ServerLocalFiles.credentialsDatabase.create(recursive: true);
     final credDb = sqlite3.open(ServerLocalFiles.credentialsDatabase.path);
@@ -40,9 +42,26 @@ abstract class ServerDataBases {
     )
     """);
     regKeyDb.dispose();
+    await ServerLocalFiles.loggingDatabase.create(recursive: true);
+    final logsDb = sqlite3.open(ServerLocalFiles.loggingDatabase.path);
+    logsDb.execute("""
+    CREATE TABLE IF NOT EXISTS logs (
+      id INTEGER NOT NULL PRIMARY KEY,
+      timestamp TEXT NOT NULL,
+      userid TEXT NOT NULL,
+      ip TEXT,
+      type TEXT NOT NULL,
+      message TEXT NOT NULL
+    )
+    """);
+    logsDb.dispose();
   }
 
   static void saveUserData(User user) {
+    if (user.userid == ServerDataBases.systemUserId) {
+      throw ArgumentError("User cannot have the system user id");
+    }
+
     final db = sqlite3.open(ServerLocalFiles.userinfoDatabase.path);
     db.execute(
       """REPLACE INTO users (userid,display_name,profile_picture,preferences) VALUES (?,?,?,?)""",
@@ -57,6 +76,9 @@ abstract class ServerDataBases {
   }
 
   static User? getUserData(String userid) {
+    if (userid == ServerDataBases.systemUserId) {
+      throw ArgumentError("System user data cannot be queried");
+    }
     final db = sqlite3.open(ServerLocalFiles.userinfoDatabase.path);
     final select = db.select("SELECT * FROM users WHERE userid = ?", [userid]);
     db.dispose();
@@ -66,7 +88,7 @@ abstract class ServerDataBases {
     final preferences = select.first["preferences"];
     return User(
       userid: userid,
-      profilePicture: Uri.tryParse(select.first["profile_picture"]),
+      profilePicture: Uri.tryParse(select.first["profile_picture"] ?? ""),
       displayName: select.first["display_name"],
       preferences: preferences != null
           ? UserPreferences.fromJson(jsonDecode(preferences))
@@ -75,6 +97,10 @@ abstract class ServerDataBases {
   }
 
   static bool checkIfUsernameExists(String displayName) {
+    if (displayName.toLowerCase() == ServerDataBases.systemUserId) {
+      return true;
+    }
+
     final userInfoDb = sqlite3.open(ServerLocalFiles.userinfoDatabase.path);
     final result = userInfoDb.select(
       "SELECT EXISTS (SELECT 1 FROM users WHERE LOWER(display_name) = ?);",
@@ -87,6 +113,9 @@ abstract class ServerDataBases {
   static bool checkIfUserIdExists(String userid) {
     if (!User.validateUserId(userid)) {
       throw FormatException("userid is not correct");
+    }
+    if (userid == ServerDataBases.systemUserId) {
+      return true;
     }
     final userInfoDb = sqlite3.open(ServerLocalFiles.userinfoDatabase.path);
     final result = userInfoDb.select(

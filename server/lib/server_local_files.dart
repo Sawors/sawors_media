@@ -11,8 +11,16 @@ extension ServerLocalFiles on LocalFiles {
     return Directory("${LocalFiles.configDir.path}/server");
   }
 
+  static Directory get serverBrandingDir {
+    return Directory("${serverDataDir.path}/branding");
+  }
+
   static File get credentialsDatabase {
     return File("${serverDataDir.path}/credentials.sqlite");
+  }
+
+  static File get loggingDatabase {
+    return File("${serverDataDir.path}/logs.sqlite");
   }
 
   static File get userinfoDatabase {

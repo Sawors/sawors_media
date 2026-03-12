@@ -11,6 +11,7 @@ dependencies:
   json_annotation: ^4.9.0
   path: ^1.9.1
   string_validator: ^1.2.0
+  xml: ^6.6.1
 
 dev_dependencies:
   lints: ^6.1.0

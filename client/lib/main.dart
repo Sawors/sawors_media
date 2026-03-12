@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
-import 'package:sawors_media_client/pages/homepage.dart';
+import 'package:sawors_media_client/meta/meta_manager.dart';
 import 'package:sawors_media_client/pages/login_page.dart';
+import 'package:sawors_media_client/pages/mainpage/app_display.dart';
 import 'package:sawors_media_client/pages/register_page.dart';
 import 'package:sawors_media_client/pages/routing.dart';
 import 'package:sawors_media_client/pages/splashcreen.dart';
@@ -16,8 +17,9 @@ import 'auth/auth.dart';
 import 'auth/tokens.dart';
 
 final GetIt locator = GetIt.instance;
+final String userid = "sawors";
 
-void setupLocator() {
+void setupLocator(String userid) {
   locator.registerLazySingleton<Dio>(() {
     // TODO : server selection here
     final String baseUrl;
@@ -30,7 +32,7 @@ void setupLocator() {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final token = await locator<TokenService>().getToken();
+          final token = await locator<TokenService>().getToken(userid);
           if (token != null) {
             options.headers['Authorization'] = token;
           }
@@ -43,13 +45,16 @@ void setupLocator() {
 
   locator.registerLazySingleton<AuthService>(() => AuthService(locator<Dio>()));
   locator.registerLazySingleton<TokenService>(() => TokenService());
+  locator.registerLazySingleton<ClientMetaManager>(
+    () => ClientMetaManager(dio: locator<Dio>()),
+  );
   locator.registerLazySingleton<FlutterSecureStorage>(
     () => FlutterSecureStorage(),
   );
 }
 
 void main() {
-  setupLocator();
+  setupLocator(userid);
   runApp(MyApp());
 }
 
@@ -60,7 +65,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Dio dio = locator<Dio>();
-    final AuthProvider authProvider = AuthProvider(AuthService(dio));
+    final AuthProvider authProvider = AuthProvider(AuthService(dio), userid);
     return ChangeNotifierProvider(
       create: (context) => authProvider,
       child: MaterialApp(
@@ -68,7 +73,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeProvider.forBrightness(brightness),
         initialRoute: RouteName.startup,
         routes: {
-          RouteName.home: (context) => const Homepage(),
+          RouteName.home: (context) => const AppDisplay(),
           RouteName.login: (context) => LoginPage(),
           RouteName.register: (context) =>
               RegisterPage(registerViewModel: RegisterPageViewModel()),

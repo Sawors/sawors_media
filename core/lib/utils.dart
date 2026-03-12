@@ -1,3 +1,5 @@
+import 'dart:math';
+
 dynamic getPathMapValue(
   Map<String, dynamic> map,
   String path, {
@@ -297,4 +299,8 @@ String removeDiacritics(String str) {
   return str.replaceAllMapped(diacriticsRegExp, (a) {
     return diacriticsMap[a.group(0)] ?? a.group(0);
   });
+}
+
+double clamp(double minValue, double value, double maxValue) {
+  return min(maxValue, max(minValue, value));
 }
